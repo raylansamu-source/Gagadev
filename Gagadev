@@ -1,0 +1,184 @@
+-- language: Lua, game: Universal, executor: Delta
+-- UI 100% Lua com a opção de selecionar o próprio jogador (Self-Kick).
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ==========================================
+-- CRIPTOGRAFIA
+-- ==========================================
+local function encode(str)
+    return (str:gsub(".", function(c) return string.format("%02x", string.byte(c)) end))
+end
+
+local function decode(hex)
+    return (hex:gsub("%x%x", function(cc) return string.char(tonumber(cc, 16)) end))
+end
+
+-- ==========================================
+-- RECEBEDOR DO KICK
+-- ==========================================
+LocalPlayer.Chatted:Connect(function(message)
+    if string.sub(message, 1, 9) == "gaga_sys_" then
+        local encoded = string.sub(message, 10)
+        local decoded = decode(encoded)
+        local target, reason = string.match(decoded, "KICK:([^:]+):(.+)")
+        
+        if target and target == LocalPlayer.Name then
+            LocalPlayer:Kick("GagaDev Kick System: " .. tostring(reason))
+        end
+    end
+end)
+
+-- ==========================================
+-- UI DO SISTEMA (Lua Puro)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GagaDevKickUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 250, 0, 350)
+Main.Position = UDim2.new(0.5, -125, 0.5, -175)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner", Main)
+UICorner.CornerRadius = UDim.new(0, 8)
+
+local UIStroke = Instance.new("UIStroke", Main)
+UIStroke.Color = Color3.fromRGB(160, 60, 255)
+UIStroke.Thickness = 2
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Title.Text = "GagaDev Kick System"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = Main
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = Main
+CloseBtn.MouseButton1Click:Connect(function()
+    Main:Destroy()
+end)
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -20, 0, 150)
+ScrollingFrame.Position = UDim2.new(0, 10, 0, 40)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.ScrollBarThickness = 2
+ScrollingFrame.Parent = Main
+
+local UIListLayout = Instance.new("UIListLayout", ScrollingFrame)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 4)
+
+local targetPlayer = nil
+local playerButtons = {}
+
+local function updatePlayerList()
+    for _, btn in pairs(playerButtons) do
+        btn:Destroy()
+    end
+    playerButtons = {}
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 30)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+        
+        -- Destaque pro próprio jogador
+        if p == LocalPlayer then
+            btn.Text = p.Name .. " (Você)"
+            btn.TextColor3 = Color3.fromRGB(255, 200, 100) -- Cor amarela
+        else
+            btn.Text = p.Name
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+        
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        btn.Parent = ScrollingFrame
+        
+        local corner = Instance.new("UICorner", btn)
+        corner.CornerRadius = UDim.new(0, 4)
+
+        btn.MouseButton1Click:Connect(function()
+            targetPlayer = p.Name
+            for _, b in pairs(playerButtons) do
+                b.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            end
+            btn.BackgroundColor3 = Color3.fromRGB(160, 60, 255)
+        end)
+        
+        table.insert(playerButtons, btn)
+    end
+    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #playerButtons * 34)
+end
+
+updatePlayerList()
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+
+local ReasonBox = Instance.new("TextBox")
+ReasonBox.Size = UDim2.new(1, -20, 0, 30)
+ReasonBox.Position = UDim2.new(0, 10, 0, 200)
+ReasonBox.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+ReasonBox.PlaceholderText = "Motivo do Kick..."
+ReasonBox.Text = ""
+ReasonBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ReasonBox.Font = Enum.Font.Gotham
+ReasonBox.TextSize = 12
+ReasonBox.Parent = Main
+
+local KickBtn = Instance.new("TextButton")
+KickBtn.Size = UDim2.new(1, -20, 0, 40)
+KickBtn.Position = UDim2.new(0, 10, 0, 250)
+KickBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+KickBtn.Text = "KICKAR SELECIONADO"
+KickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+KickBtn.Font = Enum.Font.GothamBold
+KickBtn.TextSize = 14
+KickBtn.Parent = Main
+
+KickBtn.MouseButton1Click:Connect(function()
+    if targetPlayer then
+        local reason = ReasonBox.Text
+        if reason == "" then reason = "GagaDev Hub" end
+        
+        -- Se o alvo for você mesmo, kicka direto na hora
+        if targetPlayer == LocalPlayer.Name then
+            LocalPlayer:Kick("Você se kickou: " .. reason)
+        else
+            -- Se for outro, manda a mensagem criptografada pro chat
+            local message = "gaga_sys_" .. encode("KICK:" .. targetPlayer .. ":" .. reason)
+            
+            pcall(function()
+                ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
+            end)
+
+            KickBtn.Text = "COMANDO ENVIADO!"
+            task.wait(1.5)
+            KickBtn.Text = "KICKAR SELECIONADO"
+        end
+    else
+        KickBtn.Text = "SELECIONE ALGUÉM ACIMA!"
+        task.wait(1.5)
+        KickBtn.Text = "KICKAR SELECIONADO"
+    end
+end)
